@@ -33,18 +33,21 @@ gris = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 mascar=np.zeros(image.shape[:2], dtype="uint8")
 cv2.rectangle(mascar, (xf, rois), (xf+800, rois+90), 255, -1)
 image2=cv2.bitwise_and(gris,gris,mask=mascar)
-T3=mahotas.thresholding.otsu(image2)
+T3= mahotas.thresholding.otsu(image2)
 gris_copy=gris.copy()
 gris_2=gris.copy()
+cv2.imshow('1', gris)
 #NEGATIVE IMAGE---------------------------------------------------------------------------------------------------------
 for j in range(1,800,1):
     for i in range(1,500,1):
         color=gris[i,j]
         gris[i,j]=255-color
+cv2.imshow('2', gris)
 gris=cv2.GaussianBlur(gris, (3, 3),0)
+cv2.imshow('3', gris)
 T1=mahotas.thresholding.otsu(gris)
 clahe = cv2. createCLAHE(clipLimit=1.0)
-grises= clahe . apply(gris)
+grises= clahe.apply(gris)
 conteo=1
 T2 = mahotas.thresholding.otsu(grises)
 T=(T2+T1+5)/2
@@ -61,6 +64,7 @@ cv2.imshow("gris",grises)
 mascara=np.zeros(image.shape[:2], dtype="uint8")
 cv2.rectangle(mascara, (xf, rois), (xf+800, rois+90), 255, -1)
 image1=cv2.bitwise_and(grises,grises,mask=mascara)
+cv2.imshow('4', image1)
 cv2.imshow("MEDIDOR ELECTRICO",image)
 cv2.waitKey(0)
 #FILTER-----------------------------------------------------------------------------------------------------------------

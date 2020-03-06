@@ -19,7 +19,7 @@ sampleDir = './samples2'
 dirList = os.listdir(sampleDir)
 for dir in dirList:
     # 解决文件夹中有 .DS_STORE的情况
-    if dir.startswith('.'):
+    if dir.startswith('.') or dir == '10':
         continue
     print 'dir: {}'.format(dir)
     path = os.path.join(sampleDir, dir)
