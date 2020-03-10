@@ -2,7 +2,8 @@
 import cv2
 import numpy as np
 from scipy.ndimage import interpolation as inter
-
+import mahotas
+import os
 
 def color_reverse(img):
     height, width = img.shape[:2]
@@ -15,11 +16,61 @@ def color_reverse(img):
 
 def custom_threshold(gray):
     # 用户自己计算阈值
-    h, w =gray.shape[:2]
-    m = np.reshape(gray, [1,w*h])
-    mean = m.sum()/(w*h)
-    ret, binary = cv2.threshold(gray, mean, 255, cv2.THRESH_BINARY)
-    return binary
+    # h, w =gray.shape[:2]
+    # m = np.reshape(gray, [1,w*h])
+    # mean = m.sum()/(w*h)
+    # ret, binary = cv2.threshold(gray, mean, 255, cv2.THRESH_BINARY)
+    # return binary
+    height, width = gray.shape[:2]
+    mascar = np.zeros(gray.shape[:2], dtype="uint8")
+    cv2.rectangle(mascar, (0, 0), (width, height), 255, -1)
+    gris = cv2.GaussianBlur(gray, (3, 3), 0)
+    T1 = mahotas.thresholding.otsu(gris)
+    clahe = cv2.createCLAHE(clipLimit=1.0)
+    grises = clahe.apply(gris)
+    T2 = mahotas.thresholding.otsu(grises)
+    T = (T2 + T1 + 5) / 2
+    # THRESHOLD--------------------------------------------------------------------------------------------------------------
+    for k in range(0, height, 1):
+        for z in range(0, width, 1):
+            color = grises[k, z]
+            if color > T:
+                grises[k, z] = 255
+            else:
+                grises[k, z] = 0
+    # MASCARA FOR ROI--------------------------------------------------------------------------------------------------------
+    mascara = np.zeros(gray.shape[:2], dtype="uint8")
+    cv2.rectangle(mascara, (0, 0), (width, height), 255, -1)
+    t = cv2.bitwise_and(grises, grises, mask=mascara)
+    return t
+
+
+def threshold(image, is_gray=True):
+    gray = image
+    if not is_gray:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    height, width = gray.shape[:2]
+    mascar = np.zeros(image.shape[:2], dtype="uint8")
+    cv2.rectangle(mascar, (0, 0), (width, height), 255, -1)
+    gris = cv2.GaussianBlur(gray, (3, 3), 0)
+    T1 = mahotas.thresholding.otsu(gris)
+    clahe = cv2.createCLAHE(clipLimit=1.0)
+    grises = clahe.apply(gris)
+    T2 = mahotas.thresholding.otsu(grises)
+    T = (T2 + T1 + 5) / 2
+    # THRESHOLD--------------------------------------------------------------------------------------------------------------
+    for k in range(0, height, 1):
+        for z in range(0, width, 1):
+            color = grises[k, z]
+            if color > T:
+                grises[k, z] = 255
+            else:
+                grises[k, z] = 0
+    # MASCARA FOR ROI--------------------------------------------------------------------------------------------------------
+    mascara = np.zeros(image.shape[:2], dtype="uint8")
+    cv2.rectangle(mascara, (0, 0), (width, height), 255, -1)
+    t = cv2.bitwise_and(grises, grises, mask=mascara)
+    return t
 
 
 def correct_skew(image, delta=1, limit=5, is_gray=False):
@@ -54,12 +105,21 @@ def correct_skew(image, delta=1, limit=5, is_gray=False):
 
 
 if __name__ == '__main__':
-    # img = cv2.imread('./dianbiao/Screenshot_20200221_130816.jpg')
-    # angle, rotated = correct_skew(img)
-    # print(angle)
-    # cv2.imshow('rotated', rotated)
-    # cv2.waitKey()
-    img = cv2.imread('./area/56.png', cv2.IMREAD_GRAYSCALE)
-    thresh = custom_threshold(img)
-    cv2.imshow('thresh', thresh)
-    cv2.waitKey(0)
+    # img = cv2.imread('./55.png', cv2.IMREAD_GRAYSCALE)
+    # thresh = custom_threshold(img)
+    # cv2.imshow('thresh', thresh)
+    # cv2.waitKey(0)
+
+    root = './test0309-samples'
+    dirList = os.listdir(root)
+    i = 1
+    for imgName in dirList:
+        # 解决文件夹中有 .DS_STORE的情况
+        path = os.path.join(root, imgName)
+        if imgName.startswith('.') or os.path.isdir(path):
+            continue
+        print 'dir: {}'.format(imgName)
+        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+        tmp = custom_threshold(img)
+        cv2.imwrite('./test0309-samples-threshold/{}'.format(imgName), tmp)
+    print 'finish'

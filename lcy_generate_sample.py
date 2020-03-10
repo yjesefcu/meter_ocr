@@ -10,7 +10,7 @@ import os
 # 生成采集字符
 if __name__ == '__main__':
     imgName = '40.png'
-    root = './area'
+    root = './test0309'
     dirList = os.listdir(root)
     for imgName in dirList:
         # 解决文件夹中有 .DS_STORE的情况

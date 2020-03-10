@@ -18,7 +18,7 @@ cont=1
 for cont in range(1,2,1):#change the new picture in the folder images
     xf=1
     xfx=xf
-    image = cv2.imread('train-source1/3.jpg')  #
+    image = cv2.imread('test0309/36.jpg')  #
     sp = image.shape
     height = int(sp[0])  # height(rows) of image
     width = int(sp[1])

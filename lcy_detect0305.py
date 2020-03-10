@@ -24,34 +24,23 @@ if __name__ == '__main__':
         path = os.path.join(root, imgName)
         if imgName.startswith('.') or os.path.isdir(path):
             continue
+        print 'image name: {}'.format(imgName)
         img = cv2.imread('{}/{}'.format(root, imgName))
+        # 1、倾斜矫正
         angle, img = utils.correct_skew(img, is_gray=False)
         oriHeight, oriWidth = img.shape[:2]
         resizedHeight = int(oriHeight / (oriWidth / float(800)))
+        # 2、大小归一化，宽度固定为800
         img = cv2.resize(img, (800, resizedHeight)) # 将图片宽度固定为800
+        # 3、字符分割
         wordRects = wordSplit.img_to_words(img, show) # 字符分割
-
+        # 4、图像灰化后颜色反转
         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # 把输入图像灰度化
         utils.color_reverse(gray)
-        gris = cv2.GaussianBlur(gray, (3, 3), 0) # 高斯滤波
+        gris = cv2.GaussianBlur(gray, (3, 3), 0)  # 高斯滤波
         chars = []
         for (x, y, w, h) in wordRects:
             roi = gray[y:y + h, x:x + w]
-            '''下面这段加不加对结果影响不大
-            # try:
-            #     roi = cv2.resize(roi, (50, 50))
-            # except Exception, e:
-            #     print e.message
-            # T = mahotas.thresholding.otsu(roi)
-            # for k in range(1, 50, 1):
-            #     for z in range(1, 50, 1):
-            #         color = roi[k, z]
-            #         if color > T:
-            #             roi[k, z] = 0
-            #         else:
-            #             roi[k, z] = 255
-            # roi = utils.color_reverse(roi)
-            '''
             roi = support_library.recon_borde(roi)
             roi_small = cv2.resize(roi, (10, 10))
             roi_small = roi_small.reshape((1, 100))
