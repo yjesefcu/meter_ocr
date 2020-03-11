@@ -113,7 +113,7 @@ def correct_skew(image, delta=1, limit=5, is_gray=False):
 
 
 if __name__ == '__main__':
-    img = cv2.imread('./test0310/2.png', cv2.IMREAD_GRAYSCALE)
+    img = cv2.imread('./test0309/37.jpg', cv2.IMREAD_GRAYSCALE)
     thresh = custom_threshold(img)
     cv2.imshow('thresh', thresh)
     cv2.waitKey(0)

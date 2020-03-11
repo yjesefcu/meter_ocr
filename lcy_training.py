@@ -13,7 +13,9 @@ import mahotas
 import os
 
 # OPEN TRAINING IMAGE FOR PROCESSING------------------------------------------------------------------------------------
-samples = np.empty((0, 100))
+width = 30
+height = 60
+samples = np.empty((0, width * height))
 responses = []
 sampleDir = './samples2'
 dirList = os.listdir(sampleDir)
@@ -30,24 +32,23 @@ for dir in dirList:
                 continue
             image = cv2.imread('{}/{}'.format(path, f), 0)
             try:
-                image = cv2.resize(image, (50, 50))
+                image = cv2.resize(image, (width, height))
             except Exception, e:
                 print e.message
             # DETECTION THRESHOLD----------------------------------------------------------------------------------------------------
             T = mahotas.thresholding.otsu(image)
-            for k in range(1, 50, 1):
-                for z in range(1, 50, 1):
+            for k in range(1, height, 1):
+                for z in range(1, width, 1):
                     color = image[k, z]
                     if (color > T):
-                        image[k, z] = 0
-                    else:
                         image[k, z] = 255
+                    else:
+                        image[k, z] = 0
             thresh2 = image.copy()
-            keys = [i for i in range(48, 58)]
-            roi_small = cv2.resize(thresh2, (10, 10))
+            cv2.imshow('thresh2', thresh2)
             cv2.destroyWindow('norm')
             cv2.imshow('Numero', image)
-            sample = roi_small.reshape((1, 100))
+            sample = thresh2.reshape((1, width * height))
             samples = np.append(samples, sample, 0)
             responses.append(int(dir))
 print "training complete"
@@ -55,4 +56,6 @@ np.savetxt('data/general_samples.data', samples)
 responses = np.array(responses, np.float32)
 responses = responses.reshape((responses.size, 1))
 np.savetxt('data/general_responses.data', responses)
+
+cv2.waitKey(0)
 

@@ -208,8 +208,7 @@ def rect_boundary2(img, show=False): # 通过HSV获取黑色部分
 
 # 图像预处理
 if __name__ == '__main__':
-    img = cv2.imread('./test0310/43.png')
-    cv2.imshow('origin', img)
+    img = cv2.imread('./test0309/25.jpg')
     # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # threshold = utils.custom_threshold(gray)
     # cv2.imshow('threshold', threshold)
@@ -217,16 +216,38 @@ if __name__ == '__main__':
     # """
     # 提取图中的红色部分
     # """
-    convert_red_to_black(img, True)
+    # convert_red_to_black(img, True)
     # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # threshold = utils.custom_threshold(gray)
     # cv2.imshow('threshold1', threshold)
     # cv2.imshow('origin2', img)
 
-    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.resize(img, (800, int(img.shape[0]/(img.shape[1]/800.))))
+    cv2.imshow('origin', img)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    threshold1 = utils.custom_threshold(gray)
+    cv2.imshow('threshold', threshold1)
     # angle, rotated = utils.correct_skew(gray, is_gray=True)
     # cv2.imshow('rotated', rotated)
-    # rect_boundary(rotated, show=True)
+    # (x, y, w, h) = rect_boundary(rotated, show=True)
+    # rect = rotated[y:y+h, x:x+2]
+    # 将图片分成上下各十份进行二值化
+    height, width = img.shape[:2]
+    xs = np.array_split(np.arange(width), 6)
+    ys = np.array_split(np.arange(height), 2)
+    threshold = np.zeros(img.shape[:2], dtype="uint8")
+    for i in range(0, 6):
+        for j in range(0, 2):
+            x0 = xs[i][0]
+            x1 = xs[i][-1]
+            y0 = ys[j][0]
+            y1 = ys[j][-1]
+            t = utils.custom_threshold(gray[y0: y1, x0: x1])
+            # t = utils.simple_threshold(gray[y0: y1, x0: x1])
+            for x in range(0, x1-x0):
+                for y in range(0, y1-y0):
+                    threshold[y+y0][x+x0] = t[y][x]
+    cv2.imshow('threshold2', threshold)
 
     # rect_boundary2(img, show=True)
 

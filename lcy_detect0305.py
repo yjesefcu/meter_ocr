@@ -15,9 +15,26 @@ responses = responses.reshape((responses.size, 1))
 model = cv2.ml.KNearest_create()
 model.train(samples, cv2.ml.ROW_SAMPLE, responses)
 
+width = 30
+height = 60
+#THRESHOLD FOR DETECTION------------------------------------------------------------------------------------------------
+def recon_borde(image):
+    image = cv2.resize(image, (width, height))
+    t= mahotas.thresholding.otsu(image)
+    for k in range(1, height, 1):
+        for z in range(1, width, 1):
+            color=image[k,z]
+            if color>t:
+                image[k,z]=0
+            else:
+                image[k,z]=255
+    thresh = image.copy()
+    return thresh
+
+
 if __name__ == '__main__':
     show = False
-    root = './area'
+    root = './test0311'
     dirList = os.listdir(root)
     for imgName in dirList:
         # 解决文件夹中有 .DS_STORE的情况
@@ -39,11 +56,16 @@ if __name__ == '__main__':
         utils.color_reverse(gray)
         gris = cv2.GaussianBlur(gray, (3, 3), 0)  # 高斯滤波
         chars = []
+        index = 1
         for (x, y, w, h) in wordRects:
+            if w == 0 or h == 0:
+                continue
             roi = gray[y:y + h, x:x + w]
-            roi = support_library.recon_borde(roi)
-            roi_small = cv2.resize(roi, (10, 10))
-            roi_small = roi_small.reshape((1, 100))
+            roi = utils.custom_threshold(roi)
+            cv2.imshow('roi{}'.format(index), roi)
+            roi = cv2.resize(roi, (width, height))
+            index += 1
+            roi_small = roi.reshape((1, width * height))
             roi_small = np.float32(roi_small)
             retval, results, neigh_resp, dists = model.findNearest(roi_small, k=1)
             responseNmber = int((results[0][0]))
@@ -58,6 +80,7 @@ if __name__ == '__main__':
         print 'result:', ''.join(chars)
         name = imgName[0: imgName.index('.')]
         affix = imgName[imgName.index('.'):]
-        cv2.imwrite('./result-resize/{}-{}{}'.format(name, ''.join(chars), affix), img)
+        cv2.imwrite('./test0311-result/{}-{}{}'.format(name, ''.join(chars), affix), img)
     if show:
         cv2.waitKey(0)
+    cv2.waitKey(0)

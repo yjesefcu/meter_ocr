@@ -245,7 +245,8 @@ def word_column_split(word): # 对单个字符在进行一次垂直分割，取�
 def pre_process(img, show=False):
     # img = preprocess.convert_red_to_black(img)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # 把输入图像灰度化
-    img = utils.custom_threshold(img)
+    gris = cv2.GaussianBlur(img, (3, 3), 0)  # 高斯滤波
+    img = utils.custom_threshold(gris)
     if show:
         cv2.imshow("thresh", img)
     # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))  # 形态学处理:定义矩形结构
@@ -281,7 +282,7 @@ def _rect_digital(img, show=False):
     return (x, y, w, h)
 
 
-def column_slit2(thresh, words=5, show=False): # 垂直分割：
+def column_slit2(thresh, words=5, show=False, initial_ratio=3): # 垂直分割：
     def _group(l):
         groups = []
         start_index = -1
@@ -310,16 +311,14 @@ def column_slit2(thresh, words=5, show=False): # 垂直分割：
     v = column_shadow(thresh, color=255)
     height, width = thresh.shape[:2]
     tmp = []
-    diff = height / 3
+    diff = int(height / float(initial_ratio))
     for i in v:
         tmp.append(i - diff)
     tmp_groups = []
     groups, widths = _group(tmp)
     flag = len(groups) >= words
-    before = tmp[:]
     step = 10
     while diff > 0:
-        before = tmp[:]
         tmp_groups = groups
         tmp = []
         for i in v:
@@ -327,6 +326,9 @@ def column_slit2(thresh, words=5, show=False): # 垂直分割：
                 tmp.append(0)
             else:
                 tmp.append(i - diff)
+        # if show:
+        #     _show_column_split_img(tmp, width, height, 'tmp{}'.format(diff))
+        #     cv2.waitKey(0)
         groups, widths = _group(tmp)
         if not flag:
             if len(groups) >= words:
@@ -336,7 +338,8 @@ def column_slit2(thresh, words=5, show=False): # 垂直分割：
         diff -= step
         if step > 5:
             step -= 1
-    _show_column_split_img(tmp, width, height, 'tmp')
+    if show:
+        _show_column_split_img(tmp, width, height, 'tmp')
 
     # 创建空白图片，绘制垂直投影图
     emptyImage = np.full((height, width, 3), 0, np.uint8)
@@ -346,16 +349,46 @@ def column_slit2(thresh, words=5, show=False): # 垂直分割：
                 b = (255, 255, 255)
                 emptyImage[y, x] = b
         for w in tmp_groups:
-            cv2.rectangle(emptyImage, (w[0], 0), (w[1], height), (0, 0, 255), 2)  # 用矩形显示最终字符
+            cv2.rectangle(emptyImage, (w[0], 0), (w[1] + 1, height + 1), (0, 0, 255), 2)  # 用矩形显示最终字符
         cv2.imshow('finaly', emptyImage)
-        cv2.waitKey(0)
+        # cv2.waitKey(0)
     return tmp_groups
+
+
+def _validate_by_width(thresh, rects, words=6): # 通过字符的宽度判断是否包含多个字符
+    height, width = thresh.shape[:2]
+    avgWidth = width/words # 将图片宽度除以字符个数
+    toInserts = []
+    for i in range(0, len(rects)):
+        (x, y, w, h) = rects[i]
+        count = int(w/float(avgWidth) + 0.7) #
+        if count > 1: # 宽度>间隔的1.4被，说明包含两个字符以上
+            tmpGroups = column_slit2(thresh[y:y+h, x:x+w], words=count, initial_ratio=1.2)
+            toInserts.append((i, tmpGroups))
+    toInserts.reverse() # 反转，从后面的数据开始插入
+    for toInsert in toInserts:
+        count = len(rects)
+        index, tmpGroups = toInsert
+        (x, y, w, h) = rects[index]
+        for j in range(0, len(tmpGroups)):
+            r = (tmpGroups[j][0]+x, y, (tmpGroups[j][1] - tmpGroups[j][0]), h)
+            if j == 0: # 替换原来的
+                rects[j+index] = r
+            elif index == count - 1: # 在列表的最后，直接插入
+                rects.append(r)
+            else: # 在列表的中间，用insert插入
+                rects.insert(index+1, r)
+    return rects
 
 
 def _validate_by_interval(rects): # 通过字符间隔判断字符有效性
     ws = [] # 所有矩形的宽度
-    for r in rects:
-        ws.append(r[2])
+    intervals = []
+    for i in range(0, len(rects)):
+        ws.append(rects[i][2])
+        if i < len(rects) - 1:
+            v = (rects[i + 1][0] + rects[i + 1][2] / 2) - (rects[i][0] + rects[i][2] / 2)
+            intervals.append(v)
     avgw = np.average(ws)
     results = []
     i = 0
@@ -368,6 +401,7 @@ def _validate_by_interval(rects): # 通过字符间隔判断字符有效性
             results.append(rects[i])
             results.append(rects[i+1])
         else:
+            # 间隔过近，判断哪个是正确的字符
             if rects[i][2] > rects[i+1][2]:
                 results.append(rects[i])
             else:
@@ -382,10 +416,35 @@ def _validate_by_interval(rects): # 通过字符间隔判断字符有效性
     return results
 
 
+def tight_word(gray, rect):
+    def _get_row(timg):
+        v, groups, widths = preprocess.line_shadow(timg)
+        index = np.argmax(widths)
+        return groups[index]
+
+    def _get_col(timg):
+        v, groups, widths = preprocess.column_shadow(timg)
+        index = np.argmax(widths)
+        return groups[index]
+
+    x, y, w, h = rect
+    img = gray[y:y+h, x:x+w]
+    threshold = utils.custom_threshold(img)
+    # if w > h/1.8: # 先垂直再水平
+    #     x0, x1 = _get_col(threshold)
+    #     y0, y1 = _get_row(threshold[0:h, x0:x1])
+    # else: # 先水平再垂直
+    y0, y1 = _get_row(threshold)
+    x0, x1 = _get_col(threshold[y0:y1+1, 0:w])
+    y2, y3 = _get_row(threshold[y0:y1+1, x0:x1+1])
+    cv2.rectangle(threshold, (x0, y0+y2), (x1+1, y0+y2+y3+1), (255, 255, 255), 2)  # 用矩形显示最终字符
+    cv2.imshow('tight{}'.format(x), threshold)
+    return (x0+x, y0+y2+y, x1-x0+1, y3-y2+1)
+
+
 def img_to_words(img, show=False, words=6):
     # # 将图片分割成字符
     # 步骤1：识别出数字区域
-    red_rect = preprocess.get_meter_red_area(img)
     (x1, y1, w1, h1) = _rect_digital(img)
     digital1 = img[y1:y1+h1, x1:x1+w1]
     if show:
@@ -397,10 +456,14 @@ def img_to_words(img, show=False, words=6):
     w = w2
     h = h2
     # 步骤2：图像预处理
-    closed = pre_process(img, show)
+    # closed = pre_process(img, show)
+
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # 把输入图像灰度化
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)  # 高斯滤波
+    closed = utils.custom_threshold(gray)
     closed = closed[y:y+h, x:x+w]
     # 步骤3：进行列分割，分割的图像基于数字区
-    xWords = column_slit2(closed, words=6, show=show)
+    xWords = column_slit2(closed, words=words, show=show)
     # xWords = column_split(closed, show) # 垂直的字符位置
     cv2.imshow('closed', closed)
     if len(xWords) == 0:
@@ -412,12 +475,15 @@ def img_to_words(img, show=False, words=6):
     for i in range(0, len(xWords)):
         xPos = xWords[i]
         # 对每个字符进行水平分割
-        wordRect = closed[0:h, xPos[0]:xPos[1]]
+        wordRect = closed[0:h, xPos[0]:xPos[1]+1]
+        # wordRect = utils.custom_threshold(wordRect)
         yPos = line_split(wordRect, show_window=None)
         if yPos is None:
             continue
         # 对字符再做一次垂直头像，取出左右不必要的空间
-        xPos2 = word_column_split(wordRect[yPos[0]:yPos[1], 0:wordRect.shape[1]])
+        r1 = wordRect[yPos[0]:yPos[1]+1, 0:wordRect.shape[1]]
+        # r1 = utils.custom_threshold(r1)
+        xPos2 = word_column_split(r1)
         if xPos2 is None:
             continue
         # x1 = xPos[0] + x
@@ -426,8 +492,8 @@ def img_to_words(img, show=False, words=6):
         # h1 = yPos[1] - yPos[0]
         x1 = xPos[0] + xPos2[0] + x
         y1 = yPos[0] + y
-        w1 = xPos2[1] - xPos2[0]
-        h1 = yPos[1] - yPos[0]
+        w1 = xPos2[1] - xPos2[0] + 1
+        h1 = yPos[1] - yPos[0] + 1
         tmp.append((x1, y1, w1, h1))
         wordHeights.append(h1)
     # 步骤5：对切割结果过滤，去除不可能是数字的部分：取字符高度的中位数，去除高度小于高度中位数1/3的字符
@@ -437,8 +503,15 @@ def img_to_words(img, show=False, words=6):
         (x1, y1, w1, h1) = t
         if h1 >= heightMedium / 2:
             wordRects.append(t)
-    # 步骤6：通过间隔判断不合理的数据
+    # 步骤6：通过字符的宽度判断是否包含多个字符
+    wordRects = _validate_by_width(closed, wordRects, words=words)
+    # 步骤7：通过间隔判断不合理的数据
     wordRects = _validate_by_interval(wordRects)
+    # 步骤8：重新二值化后再次收缩字符范围
+    for i in range(0, len(wordRects)):
+        r = wordRects[i]
+        r1 = tight_word(gray, r)
+        wordRects[i] = r1
     if show:
         for (x1, y1, w1, h1) in wordRects:
             cv2.rectangle(img, (x1, y1), (x1 + w1, y1 + h1), (0, 0, 255), 2)  # 用矩形显示最终字符
@@ -447,17 +520,14 @@ def img_to_words(img, show=False, words=6):
 
 
 if __name__ == '__main__':
-    # img = cv2.imread('./test0309/37.jpg')
-    # img = cv2.imread('./test0309/36.jpg')
-    # img = cv2.imread('./test0309/29.jpg') # 36,37   22,29,34,45,46,53,54,
+    # img = cv2.imread('./test0309/34.jpg') # 4,29,34,36,37,44,45,46
+    img = cv2.imread('./test0311/7.jpg') # 34,37,45,46
     # img = cv2.imread('./area/13.png') # 5，18，31，42，51，54，55
-    img = cv2.imread('./test0310/38.png') # 39
-    # img = cv2.imread('./area/64.png')
     angle, img = utils.correct_skew(img, is_gray=False)
     cv2.imshow('skew', img)
     oriHeight, oriWidth = img.shape[:2]
     resizedHeight = int(oriHeight / (oriWidth / float(800)))
     img = cv2.resize(img, (800, resizedHeight)) # 将图片宽度固定为800
-    img_to_words(img, show=True)
+    img_to_words(img, show=True, words=6)
     cv2.waitKey(0)
     cv2.destroyAllWindows()

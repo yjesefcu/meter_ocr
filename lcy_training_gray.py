@@ -12,6 +12,7 @@ import cv2
 import mahotas
 import os
 
+# 用灰度图作为采样数据
 # OPEN TRAINING IMAGE FOR PROCESSING------------------------------------------------------------------------------------
 width = 30
 height = 60
@@ -35,20 +36,20 @@ for dir in dirList:
                 image = cv2.resize(image, (width, height))
             except Exception, e:
                 print e.message
-            # DETECTION THRESHOLD----------------------------------------------------------------------------------------------------
-            T = mahotas.thresholding.otsu(image)
-            for k in range(1, height, 1):
-                for z in range(1, width, 1):
-                    color = image[k, z]
-                    if (color > T):
-                        image[k, z] = 0
-                    else:
-                        image[k, z] = 255
-            thresh2 = image.copy()
-            cv2.imshow('thresh2', thresh2)
-            cv2.destroyWindow('norm')
-            cv2.imshow('Numero', image)
-            sample = thresh2.reshape((1, width * height))
+            # # DETECTION THRESHOLD----------------------------------------------------------------------------------------------------
+            # T = mahotas.thresholding.otsu(image)
+            # for k in range(1, height, 1):
+            #     for z in range(1, width, 1):
+            #         color = image[k, z]
+            #         if (color > T):
+            #             image[k, z] = 0
+            #         else:
+            #             image[k, z] = 255
+            # thresh2 = image.copy()
+            # cv2.imshow('thresh2', thresh2)
+            # cv2.destroyWindow('norm')
+            # cv2.imshow('Numero', image)
+            sample = image.reshape((1, width * height))
             samples = np.append(samples, sample, 0)
             responses.append(int(dir))
 print "training complete"
