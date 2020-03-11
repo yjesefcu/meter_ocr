@@ -14,6 +14,14 @@ def color_reverse(img):
     return img
 
 
+def simple_threshold(gray):
+    h, w =gray.shape[:2]
+    m = np.reshape(gray, [1,w*h])
+    mean = m.sum()/(w*h)
+    ret, binary = cv2.threshold(gray, mean, 255, cv2.THRESH_BINARY)
+    return binary
+
+
 def custom_threshold(gray):
     # 用户自己计算阈值
     # h, w =gray.shape[:2]
@@ -105,21 +113,21 @@ def correct_skew(image, delta=1, limit=5, is_gray=False):
 
 
 if __name__ == '__main__':
-    # img = cv2.imread('./55.png', cv2.IMREAD_GRAYSCALE)
-    # thresh = custom_threshold(img)
-    # cv2.imshow('thresh', thresh)
-    # cv2.waitKey(0)
+    img = cv2.imread('./test0310/2.png', cv2.IMREAD_GRAYSCALE)
+    thresh = custom_threshold(img)
+    cv2.imshow('thresh', thresh)
+    cv2.waitKey(0)
 
-    root = './test0309-samples'
-    dirList = os.listdir(root)
-    i = 1
-    for imgName in dirList:
-        # 解决文件夹中有 .DS_STORE的情况
-        path = os.path.join(root, imgName)
-        if imgName.startswith('.') or os.path.isdir(path):
-            continue
-        print 'dir: {}'.format(imgName)
-        img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-        tmp = custom_threshold(img)
-        cv2.imwrite('./test0309-samples-threshold/{}'.format(imgName), tmp)
-    print 'finish'
+    # root = './test0309-samples'
+    # dirList = os.listdir(root)
+    # i = 1
+    # for imgName in dirList:
+    #     # 解决文件夹中有 .DS_STORE的情况
+    #     path = os.path.join(root, imgName)
+    #     if imgName.startswith('.') or os.path.isdir(path):
+    #         continue
+    #     print 'dir: {}'.format(imgName)
+    #     img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    #     tmp = custom_threshold(img)
+    #     cv2.imwrite('./test0309-samples-threshold/{}'.format(imgName), tmp)
+    # print 'finish'

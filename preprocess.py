@@ -6,6 +6,16 @@ import utils
 import numpy as np
 
 
+def get_black_mat(img, show=False):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    low_hsv = np.array([0, 0, 0])
+    high_hsv = np.array([180, 255, 46])
+    mask = cv2.inRange(hsv, lowerb=low_hsv, upperb=high_hsv)
+    if show:
+        cv2.imshow('black area', mask)
+    return mask
+
+
 def get_red_mat(img, show=False): # 取图像的红色所在的点，返回一个矩阵，红色值用255表示，其他用0表示
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     low_hsv = np.array([0, 43, 46])
@@ -51,6 +61,7 @@ def get_meter_red_area(img, show=False): # 获取电表的红色区域，返回�
 
 def convert_red_to_black(img, show=False): # 将图片中的红色转成黑色
     mask = get_red_mat(img, show)
+    mask = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
     height, width = img.shape[:2]
     copy = img.copy()
     for y in range(0, height):
@@ -62,7 +73,7 @@ def convert_red_to_black(img, show=False): # 将图片中的红色转成黑色
     return copy
 
 
-def column_shadow(thresh, color=255, show=False): # 需传入二值化图片
+def column_shadow(thresh, color=255, threshold=0, show=False): # 需传入二值化图片
     # 垂直投影，只返回投影后的白色(color=255)或黑色(color=0)点位个数
     # return: (v, groups), v为投影后每一行color的个数，groups为将相连的个数不为0的区域进行统计后得到的组的起止点位
     height, width = thresh.shape[:2]
@@ -82,9 +93,9 @@ def column_shadow(thresh, color=255, show=False): # 需传入二值化图片
     start_index = -1
     group_height = []
     for i in range(0, width):
-        if v[i] > 0 and start_index < 0:
+        if v[i] > threshold and start_index < 0:
             start_index = i
-        elif (v[i] == 0 and start_index >= 0) or (i == width - 1 and start_index >= 0):
+        elif (v[i] <= threshold and start_index >= 0) or (i == width - 1 and start_index >= 0):
             groups.append((start_index, i - 1))
             group_height.append(i - start_index)
             start_index = -1
@@ -98,7 +109,7 @@ def column_shadow(thresh, color=255, show=False): # 需传入二值化图片
     return v, groups, group_height
 
 
-def line_shadow(thresh, color=255, show=False): # 需传入二值化图片
+def line_shadow(thresh, color=255, threshold=0, show=False): # 需传入二值化图片
     # 水平投影，只返回投影后的白色(color=255)或黑色(color=0)点位个数
     # return: (v, groups), v为投影后每一行color的个数，groups为将相连的个数不为0的区域进行统计后得到的组的起止点位
     height, width = thresh.shape[:2]
@@ -117,9 +128,9 @@ def line_shadow(thresh, color=255, show=False): # 需传入二值化图片
     start_index = -1
     group_height = []
     for i in range(0, height):
-        if v[i] > 0 and start_index < 0:
+        if v[i] > threshold and start_index < 0:
             start_index = i
-        elif (v[i] == 0 and start_index >= 0) or (i == height - 1 and start_index >= 0):
+        elif (v[i] <= threshold and start_index >= 0) or (i == height - 1 and start_index >= 0):
             groups.append((start_index, i - 1))
             group_height.append(i - start_index)
             start_index = -1
@@ -136,13 +147,14 @@ def line_shadow(thresh, color=255, show=False): # 需传入二值化图片
 def rect_boundary(grayImg, show=False):
     # 数字区域定位
     # thresh = binary.local_threshold(grayImg) # 二值化
-    # thresh = cv2.erode(thresh, cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10)))
-    thresh = utils.custom_threshold(grayImg)
+    # thresh = utils.custom_threshold(grayImg)
+    thresh = utils.simple_threshold(grayImg)
+    thresh = cv2.erode(thresh, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)))
     if show:
         cv2.imshow('thresh', thresh)
     # 取最中间的一段图像做水平投影，取出黑色占比最大的一段
     height, width = grayImg.shape[:2]
-    middle_img = thresh[0:height, (width/2-width/10):(width/2+width/10)]
+    middle_img = thresh[0:height, (width/2-width/8):(width/2+width/8)]
     if show:
         cv2.imshow('middle', middle_img)
     # 对截取的图片进行水平黑色投影，取出黑色占比最多的部分
@@ -184,10 +196,20 @@ def rect_boundary(grayImg, show=False):
     return (posX[0], posY[0], posX[1]-posX[0], posY[1]-posY[0])
 
 
+def rect_boundary2(img, show=False): # 通过HSV获取黑色部分
+    converted = convert_red_to_black(img, show)
+    mat = get_black_mat(converted, show=show)
+    angle, rotated = utils.correct_skew(mat, is_gray=True)
+    if show:
+        cv2.imshow('rotated', rotated)
+    # 水平投影
+    v, groups, counts = line_shadow(rotated, color=255)
+
+
 # 图像预处理
 if __name__ == '__main__':
-    img = cv2.imread('./area/58.png')
-    # cv2.imshow('origin', img)
+    img = cv2.imread('./test0310/43.png')
+    cv2.imshow('origin', img)
     # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # threshold = utils.custom_threshold(gray)
     # cv2.imshow('threshold', threshold)
@@ -195,15 +217,18 @@ if __name__ == '__main__':
     # """
     # 提取图中的红色部分
     # """
-    # convert_red_to_black(img, True)
+    convert_red_to_black(img, True)
     # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # threshold = utils.custom_threshold(gray)
     # cv2.imshow('threshold1', threshold)
     # cv2.imshow('origin2', img)
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    angle, img = utils.correct_skew(gray, is_gray=True)
-    rect_boundary(img, show=True)
+    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # angle, rotated = utils.correct_skew(gray, is_gray=True)
+    # cv2.imshow('rotated', rotated)
+    # rect_boundary(rotated, show=True)
+
+    # rect_boundary2(img, show=True)
 
     cv2.waitKey(0)
 
