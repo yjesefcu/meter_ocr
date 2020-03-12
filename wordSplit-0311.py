@@ -326,9 +326,9 @@ def column_slit2(thresh, words=5, show=False, initial_ratio=3): # 垂直分割�
                 tmp.append(0)
             else:
                 tmp.append(i - diff)
-        # if show:
-        #     _show_column_split_img(tmp, width, height, 'tmp{}'.format(diff))
-        #     cv2.waitKey(0)
+        if show:
+            _show_column_split_img(tmp, width, height, 'tmp{}'.format(diff))
+            cv2.waitKey(0)
         groups, widths = _group(tmp)
         if not flag:
             if len(groups) >= words:
@@ -482,7 +482,6 @@ def img_to_words(img, show=False, words=6):
             continue
         # 对字符再做一次垂直头像，取出左右不必要的空间
         r1 = wordRect[yPos[0]:yPos[1]+1, 0:wordRect.shape[1]]
-        # r1 = utils.custom_threshold(r1)
         xPos2 = word_column_split(r1)
         if xPos2 is None:
             continue
@@ -521,8 +520,8 @@ def img_to_words(img, show=False, words=6):
 
 if __name__ == '__main__':
     # img = cv2.imread('./test0309/34.jpg') # 4,29,34,36,37,44,45,46
-    img = cv2.imread('./test0311/7.jpg') # 34,37,45,46
     # img = cv2.imread('./area/13.png') # 5，18，31，42，51，54，55
+    img = cv2.imread('./area/1.png') # 34,37,45,46
     angle, img = utils.correct_skew(img, is_gray=False)
     cv2.imshow('skew', img)
     oriHeight, oriWidth = img.shape[:2]
